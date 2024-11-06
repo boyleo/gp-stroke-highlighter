@@ -39,4 +39,7 @@ Download and extract in your addon folder.<br>
 Enable the addon in Blender preferences.<br>
 
 <h2>Disclaimer</h2>
+This addon has not been tested with other version of Blender.
+It has not been thoroughly tested in 4.2, neither.
+
 * This addon was developed within a few hours with help from ChatGPT and DeepSeek *
