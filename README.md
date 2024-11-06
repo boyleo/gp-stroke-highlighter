@@ -28,5 +28,8 @@ Style = Texture
 and add a small texture file (example : triangle.png in this repo)
 this texture need to rotate 90 degrees.
 
+![Screenshot 2567-11-06 at 21 41 58](https://github.com/user-attachments/assets/29c11395-d465-4fb6-a435-344996c0a228)
+
+
 
 * This addon is developed within a few hours with help from ChatGPT and DeepSeek *
