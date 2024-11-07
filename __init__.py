@@ -2,9 +2,9 @@ bl_info = {
     "name": "Grease Pencil Stroke Highlighter",
     "blender": (4, 2, 0),
     "category": "Grease Pencil",
+    "version": (1, 0, 1),
     "author": "Boonsak Watanavisit",
-    "version": (1, 0),
-    "description": "Highlight strokes in the previous keyframe of a Grease Pencil object.",
+    "description": "Highlight strokes in the previous keyframe by cycling through them.",
 }
 
 import bpy
@@ -28,16 +28,16 @@ def highlight_previous_keyframe_stroke(operator, material_name):
         original_frame = bpy.context.scene.frame_current
         previous_keyframe = get_previous_keyframe(keyframe_numbers, original_frame)
 
-        if previous_keyframe is not None:
+        if previous_keyframe is not None and previous_keyframe != original_frame:  # Ensure it's not the current frame
             # Find the previous keyframe by frame number
             prev_keyframe_frame = next((frame for frame in layer.frames if frame.frame_number == previous_keyframe), None)
             if not prev_keyframe_frame:
-                operator.report({'WARNING'}, "Previous keyframe not found.")
+                operator.report({'INFO'}, "Previous keyframe not found.")
                 return
 
             total_strokes = len(prev_keyframe_frame.strokes)
             if total_strokes == 0:
-                operator.report({'WARNING'}, "No strokes found in the keyframe.")
+                operator.report({'INFO'}, "No strokes found in the keyframe.")
                 return
 
             # Determine the next stroke index to highlight
@@ -47,7 +47,7 @@ def highlight_previous_keyframe_stroke(operator, material_name):
             # Find the material index for the selected material name
             material_index = next((idx for idx, mat in enumerate(gpencil.materials) if mat.name == material_name), -1)
             if material_index == -1:
-                operator.report({'WARNING'}, "Selected material not found.")
+                operator.report({'INFO'}, "Selected material not found.")
                 return
 
             # Store original material indices if not already stored
@@ -56,21 +56,35 @@ def highlight_previous_keyframe_stroke(operator, material_name):
 
             # Revert the last highlighted stroke to its original material
             if last_highlighted_index != -1 and last_highlighted_index < total_strokes:
-                prev_keyframe_frame.strokes[last_highlighted_index].material_index = original_material_indices[previous_keyframe][last_highlighted_index]
+                try:
+                    prev_keyframe_frame.strokes[last_highlighted_index].material_index = original_material_indices[previous_keyframe][last_highlighted_index]
+                except Exception as e:
+                    operator.report({'INFO'}, f"Error reverting stroke: {e}")
+                    return
 
             # Highlight the next stroke in the sequence
-            prev_keyframe_frame.strokes[next_index].material_index = material_index
+            try:
+                prev_keyframe_frame.strokes[next_index].material_index = material_index
+            except Exception as e:
+                operator.report({'INFO'}, f"Error highlighting stroke: {e}")
+                return
+
             bpy.context.scene.gpencil_current_highlighted_stroke = next_index
             last_highlighted_index = next_index  # Update last highlighted index
             bpy.context.scene.gpencil_total_strokes = total_strokes
 
             # Restore original frame without changing the frame in UI
-            layer.active_frame = next((f for f in layer.frames if f.frame_number == original_frame), None)
+            try:
+                layer.active_frame = next((f for f in layer.frames if f.frame_number == original_frame), None)
+            except Exception as e:
+                operator.report({'INFO'}, f"Error restoring original frame: {e}")
+                return
+
             operator.report({'INFO'}, f"Highlighted stroke {next_index + 1} out of {total_strokes}.")
         else:
-            operator.report({'WARNING'}, "No previous keyframe found.")
+            operator.report({'INFO'}, "No previous keyframe found.")
     else:
-        operator.report({'WARNING'}, "Active object is not a Grease Pencil object.")
+        operator.report({'INFO'}, "Active object is not a Grease Pencil object.")
 
 # Revert all strokes in the previous keyframe to their original materials
 def revert_strokes_to_original(operator):
@@ -86,11 +100,19 @@ def revert_strokes_to_original(operator):
         prev_keyframe_frame = next((frame for frame in layer.frames if frame.frame_number == previous_keyframe), None)
         if prev_keyframe_frame:
             for i, stroke in enumerate(prev_keyframe_frame.strokes):
-                stroke.material_index = original_material_indices[previous_keyframe][i]
-            layer.active_frame = next((f for f in layer.frames if f.frame_number == original_frame), None)
+                try:
+                    stroke.material_index = original_material_indices[previous_keyframe][i]
+                except Exception as e:
+                    operator.report({'INFO'}, f"Error reverting stroke: {e}")
+                    return
+            try:
+                layer.active_frame = next((f for f in layer.frames if f.frame_number == original_frame), None)
+            except Exception as e:
+                operator.report({'INFO'}, f"Error restoring original frame: {e}")
+                return
             operator.report({'INFO'}, "All strokes reverted to original materials.")
     else:
-        operator.report({'WARNING'}, "No previous keyframe or original materials found.")
+        operator.report({'INFO'}, "No previous keyframe or original materials found.")
 
 # Operator class
 class HighlightPreviousKeyframeOperator(bpy.types.Operator):
@@ -174,6 +196,10 @@ def register():
         name="Current Stroke",
         default=-1  # Start from -1 to begin highlighting from the first stroke on first click
     )
+    bpy.types.Scene.gpencil_highlight_material_index = bpy.props.IntProperty(
+        name="Highlight Material Index",
+        default=0
+    )
 
 def unregister():
     bpy.utils.unregister_class(HighlightPreviousKeyframeOperator)
@@ -184,6 +210,7 @@ def unregister():
     del bpy.types.Scene.gpencil_highlight_material
     del bpy.types.Scene.gpencil_total_strokes
     del bpy.types.Scene.gpencil_current_highlighted_stroke
+    del bpy.types.Scene.gpencil_highlight_material_index
 
 if __name__ == "__main__":
     register()
